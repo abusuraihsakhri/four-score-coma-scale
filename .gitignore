@@ -4,3 +4,13 @@ __pycache__/
 .pytest_cache/
 results.csv
 output.csv
+
+.env
+.env.*
+!.env.example
+.venv/
+*.egg-info/
+.coverage
+htmlcov/
+dist/
+build/

@@ -1,118 +1,109 @@
 #!/usr/bin/env python3
-"""
-FOUR Score (Full Outline of UnResponsiveness)
-Evaluates neurological status (Eye, Motor, Brainstem, Respiration) in intubated and comatose patients.
+"""FOUR (Full Outline of UnResponsiveness) score: four domains, 0–4 each.
 
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
+Scores are assigned by a trained examiner; this module only validates and adds them.
+Reference: Wijdicks et al. Ann Neurol. 2005;58:585–593. doi:10.1002/ana.20611
 """
-
 import argparse
 import csv
 import json
-import math
-import sys
-from typing import Dict, Any, List, Optional
+import os
+import tempfile
+from pathlib import Path
+
+DOMAINS = ("eye", "motor", "brainstem", "respiration")
 
 
-def calculate_metrics(**kwargs) -> Dict[str, Any]:
-    """
-    Core domain algorithm for four-score-coma-scale.
-    """
-    params = {}
-    for k, v in kwargs.items():
-        if v is not None:
-            try:
-                params[k] = float(v)
-            except (ValueError, TypeError):
-                params[k] = str(v)
-
-    # Deterministic domain logic
-    numeric_vals = [val for val in params.values() if isinstance(val, (int, float))]
-    primary_val = numeric_vals[0] if numeric_vals else 1.0
-
-    score = primary_val
-    for idx, nv in enumerate(numeric_vals[1:], start=2):
-        score += nv * (1.0 / idx)
-
-    rounded_score = round(score, 2)
-    
-    # Classification / tiering
-    if rounded_score < 10.0:
-        tier = "Low / Standard"
-        action = "Standard monitoring or negative cutoff"
-    elif rounded_score < 25.0:
-        tier = "Moderate / Intermediate"
-        action = "Close observation or secondary evaluation"
+def _point(value, domain):
+    """Accept integer point values or their plain decimal representation from CSV."""
+    if isinstance(value, bool):
+        raise ValueError(f"{domain} must be an integer from 0 to 4")
+    if isinstance(value, int):
+        point = value
+    elif isinstance(value, str) and value.strip() in ("0", "1", "2", "3", "4"):
+        point = int(value.strip())
     else:
-        tier = "High / Severe"
-        action = "Urgent clinical intervention or primary positive finding"
+        raise ValueError(f"{domain} must be an integer from 0 to 4")
+    if not 0 <= point <= 4:
+        raise ValueError(f"{domain} must be an integer from 0 to 4")
+    return point
 
+
+def calculate_metrics(*, eye, motor, brainstem, respiration):
+    """Return a descriptive FOUR total; no unvalidated diagnostic cutoffs."""
+    parts = {
+        name: _point(value, name)
+        for name, value in zip(DOMAINS, (eye, motor, brainstem, respiration))
+    }
     return {
         "tool": "four-score-coma-scale",
-        "score": rounded_score,
-        "classification": tier,
-        "clinical_recommendation": action,
-        "inputs_evaluated": len(params),
+        "score": sum(parts.values()),
+        "max_score": 16,
+        "components": parts,
+        "note": "A lower score indicates more impaired findings; interpret in clinical context.",
     }
 
 
-def process_single(args) -> None:
-    kwargs = vars(args)
-    kwargs.pop("func", None)
-    res = calculate_metrics(**kwargs)
-    print(json.dumps(res, indent=2))
+def process_batch(input_csv: str, output_csv: str) -> int:
+    """Validate all rows before atomically replacing the output CSV."""
+    with open(input_csv, newline="", encoding="utf-8-sig") as stream:
+        reader = csv.DictReader(stream)
+        headers = reader.fieldnames
+        if not headers or len(headers) != len(set(headers)):
+            raise ValueError("CSV requires a nonempty header with unique column names")
+        missing = set(DOMAINS).difference(headers)
+        if missing:
+            raise ValueError("CSV is missing required columns: " + ", ".join(sorted(missing)))
+        if "four_score_total" in headers:
+            raise ValueError("CSV input already contains reserved column four_score_total")
+        rows = []
+        for line_no, row in enumerate(reader, start=2):
+            if None in row:
+                raise ValueError(f"Row {line_no}: extra CSV fields")
+            try:
+                result = calculate_metrics(**{name: row[name] for name in DOMAINS})
+            except ValueError as exc:
+                raise ValueError(f"Row {line_no}: {exc}") from exc
+            rows.append({**row, "four_score_total": result["score"]})
 
-
-def process_batch(input_csv: str, output_csv: str) -> None:
-    with open(input_csv, mode="r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        fieldnames = list(reader.fieldnames or [])
-        rows = list(reader)
-
-    out_fields = fieldnames + ["score", "classification", "clinical_recommendation"]
-    out_rows = []
-
-    for r in rows:
-        calc_res = calculate_metrics(**r)
-        row_dict = dict(r)
-        row_dict["score"] = calc_res["score"]
-        row_dict["classification"] = calc_res["classification"]
-        row_dict["clinical_recommendation"] = calc_res["clinical_recommendation"]
-        out_rows.append(row_dict)
-
-    with open(output_csv, mode="w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=out_fields)
-        writer.writeheader()
-        writer.writerows(out_rows)
-
-    print(f"Processed {len(out_rows)} records -> {output_csv}")
+    destination = Path(output_csv)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", newline="", encoding="utf-8", dir=destination.parent,
+            prefix=".four-score-", suffix=".csv", delete=False
+        ) as stream:
+            temporary = stream.name
+            writer = csv.DictWriter(stream, fieldnames=headers + ["four_score_total"])
+            writer.writeheader()
+            writer.writerows(rows)
+        os.replace(temporary, destination)
+    finally:
+        if temporary and os.path.exists(temporary):
+            os.unlink(temporary)
+    return len(rows)
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="FOUR Score (Full Outline of UnResponsiveness)")
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    # Single parser
-    single_parser = subparsers.add_parser("single", help="Evaluate single case")
-    single_parser.add_argument("--v1", type=float, default=10.0, help="Primary parameter")
-    single_parser.add_argument("--v2", type=float, default=5.0, help="Secondary parameter")
-    single_parser.add_argument("--v3", type=float, default=2.0, help="Tertiary parameter")
-    single_parser.set_defaults(func=process_single)
-
-    # Batch parser
-    batch_parser = subparsers.add_parser("batch", help="Process batch CSV")
-    batch_parser.add_argument("-i", "--input", required=True, help="Input CSV")
-    batch_parser.add_argument("-o", "--output", default="results.csv", help="Output CSV")
-
+    parser = argparse.ArgumentParser(description="FOUR coma score (0–16)")
+    commands = parser.add_subparsers(dest="command", required=True)
+    single = commands.add_parser("single", help="Score one clinical examination")
+    for name in DOMAINS:
+        single.add_argument(f"--{name}", type=int, required=True, choices=range(5))
+    batch = commands.add_parser("batch", help="Score rows in a CSV")
+    batch.add_argument("-i", "--input", required=True, help="Source CSV")
+    batch.add_argument("-o", "--output", default="results.csv", help="Destination CSV")
     args = parser.parse_args(argv)
-
     if args.command == "single":
-        args.func(args)
-    elif args.command == "batch":
-        process_batch(args.input, args.output)
+        print(json.dumps(calculate_metrics(**{name: getattr(args, name) for name in DOMAINS}), indent=2))
+    else:
+        try:
+            count = process_batch(args.input, args.output)
+        except (ValueError, OSError, csv.Error) as exc:
+            parser.error(str(exc))
+        print(f"Processed {count} records -> {args.output}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

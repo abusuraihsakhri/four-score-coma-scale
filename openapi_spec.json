@@ -1,112 +1,120 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Four Score Coma Scale API",
-    "description": "Enterprise Distributed Component Platform (Clinical & Cryptographic AI) adhering to CAP / CLSI / NIST Standards.",
-    "version": "3.0.0-ENTERPRISE",
-    "contact": {
-      "name": "Dr. Abu Suraih Sakhri",
-      "url": "https://github.com/abusuraihsakhri"
-    }
+    "title": "FOUR Score API",
+    "version": "3.1.0",
+    "description": "Clinical FOUR scoring and independent legacy demonstration endpoints. Runtime /openapi.json is authoritative."
   },
   "paths": {
     "/health": {
       "get": {
-        "summary": "Health and metadata check",
+        "summary": "Application health",
         "responses": {
           "200": {
-            "description": "System optimal"
+            "description": "OK"
           }
         }
       }
     },
     "/metrics": {
       "get": {
-        "summary": "Prometheus operational metrics",
+        "summary": "Process-local counters",
         "responses": {
           "200": {
-            "description": "Prometheus text metrics"
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/four-score": {
+      "post": {
+        "summary": "Compute FOUR score (0–16)",
+        "description": "Adds eye, motor, brainstem and respiration points (integers 0–4 each). No prognostic cutoffs.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FourScoreRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FOUR total and components"
+          },
+          "422": {
+            "description": "Input validation error"
           }
         }
       }
     },
     "/api/audit": {
       "post": {
-        "summary": "Dispatch task payload across specialized workers",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "task_id": {
-                    "type": "string"
-                  },
-                  "target_identifier": {
-                    "type": "string"
-                  },
-                  "primary_metric": {
-                    "type": "number"
-                  },
-                  "secondary_metric": {
-                    "type": "number"
-                  },
-                  "status_descriptor": {
-                    "type": "string"
-                  },
-                  "is_critical_flag": {
-                    "type": "boolean"
-                  }
-                },
-                "required": [
-                  "task_id",
-                  "target_identifier",
-                  "primary_metric"
-                ]
-              }
-            }
-          }
-        },
+        "deprecated": true,
+        "summary": "Legacy generic workflow demonstration (not FOUR scoring)",
         "responses": {
           "200": {
-            "description": "Consensus dossier with HMAC signature"
+            "description": "Demo dossier"
           }
         }
       }
     },
     "/api/chat": {
       "post": {
-        "summary": "Air-gapped supervisory conversational assistant",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "query": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "query"
-                ]
-              }
-            }
-          }
-        },
+        "deprecated": true,
+        "summary": "Deterministic mock response",
         "responses": {
           "200": {
-            "description": "Supervisory response"
+            "description": "Mock response"
           }
         }
       }
     },
     "/api/audit/logs": {
       "get": {
-        "summary": "Retrieve and cryptographically verify HMAC audit trail",
+        "deprecated": true,
+        "summary": "Process-local demo audit metadata",
         "responses": {
           "200": {
-            "description": "Cryptographic audit trail"
+            "description": "Demo audit chain"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "FourScoreRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eye",
+          "motor",
+          "brainstem",
+          "respiration"
+        ],
+        "properties": {
+          "eye": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "motor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "brainstem": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
+          },
+          "respiration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4
           }
         }
       }
