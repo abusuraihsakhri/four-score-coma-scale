@@ -1,10 +1,12 @@
 # FOUR Score — Coma Assessment
 
+### [Open the Live Application →](https://abusuraihsakhri.github.io/four-score-coma-scale/)
+
 A clinical scoring aid for the **Full Outline of UnResponsiveness (FOUR)** scale. An examiner selects one finding in each of four domains: **eye, motor, brainstem reflexes, and respiration**. Each contributes 0–4 points, giving an integer total of **0–16**. Lower totals indicate more impaired findings. The software does not assign prognostic cutoffs or recommend treatment.
 
 ## Browser calculator
 
-Open `web/index.html` in a modern browser, select all four findings, then view, print, or export the score to CSV. No server, install, Python, or external JavaScript dependencies are needed. An automated GitHub Pages deployment workflow publishes the `web/` directory when Pages is enabled.
+Open `web/index.html` in a modern browser, select all four findings, then view, print, or export the score to CSV. No server, install, Python, or external JavaScript dependencies are needed. The [live application](https://abusuraihsakhri.github.io/four-score-coma-scale/) is deployed from `web/` through GitHub Actions.
 
 ## Python calculator
 
