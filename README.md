@@ -1,116 +1,55 @@
-# Four Score Coma Scale
+# FOUR Score — Coma Assessment
 
-> **Domain:** Clinical Decision Support & Biomedical Computing  
-> **Reference Guidelines & Standards:** `Standard Clinical Formulations & ISO/IEC Quality Frameworks`
+A clinical scoring aid for the **Full Outline of UnResponsiveness (FOUR)** scale. An examiner selects one finding in each of four domains: **eye, motor, brainstem reflexes, and respiration**. Each contributes 0–4 points, giving an integer total of **0–16**. Lower totals indicate more impaired findings. The software does not assign prognostic cutoffs or recommend treatment.
 
-<div align="center">
+## Browser calculator
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-![Python](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB.svg?logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688.svg?logo=fastapi&logoColor=white)
-![Audit Trail](https://img.shields.io/badge/Audit-HMAC--SHA256_Tamper--Evident-brightgreen.svg)
-![Zero-PHI Guard](https://img.shields.io/badge/Guard-Zero--PHI_Outbound-blue.svg)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg?logo=docker&logoColor=white)
+Open `web/index.html` in a modern browser, select all four findings, then view, print, or export the score to CSV. No server, install, Python, or external JavaScript dependencies are needed. An automated GitHub Pages deployment workflow publishes the `web/` directory when Pages is enabled.
 
-</div>
+## Python calculator
 
----
-
-## 📖 What It Does
-
-FOUR Score (Full Outline of UnResponsiveness)
-Evaluates neurological status (Eye, Motor, Brainstem, Respiration) in intubated and comatose patients.
-
-Zero-dependency Python implementation with single and batch evaluation.
-Author: Dr. Abu Suraih Sakhri
-License: MIT
-
----
-
-## ⚙️ Key Capabilities & Algorithmic Modules
-
-### 🔬 Analytical Functions
-
-- **`calculate_metrics()`**: Core domain algorithm for four-score-coma-scale.
-- **`process_single()`** — calculates and validates process_single parameters.
-- **`process_batch()`** — calculates and validates process_batch parameters.
-- **`main()`** — calculates and validates main parameters.
-
----
-
-## 📐 Mathematical Formulation & Logic
-
-```text
-  score = primary_val
-  rounded_score = round(score, 2)
-  res = calculate_metrics(**kwargs)
-  calc_res = calculate_metrics(**r)
-```
-
----
-
-## 💻 CLI Quickstart & Usage
-
-### 1. Guided Interactive Mode
-```bash
-python cli.py
-```
-
-### 2. Direct Parameterized Evaluation
-```bash
-python cli.py --task-id <value> --target <value> --primary <value> --secondary <value>
-```
-
-### Parameter Reference
-- `--task-id`: Specifies input measurement or parameter value.
-- `--target`: Specifies input measurement or parameter value.
-- `--primary`: Specifies input measurement or parameter value.
-- `--secondary`: Specifies input measurement or parameter value.
-- `--critical`: Specifies input measurement or parameter value.
-- `--status`: Specifies input measurement or parameter value.
-- `--input`: Specifies input measurement or parameter value.
-- `--output`: Specifies input measurement or parameter value.
-
-### Input Data Schema
-
-| Field | Description | Requirement |
-|:------|:------------|:------------|
-| `Patient_ID` | Parameter / observation metric | Required |
-| `v1` | Parameter / observation metric | Required |
-| `v2` | Parameter / observation metric | Required |
-| `v3` | Parameter / observation metric | Required |
-
----
-
-## 🛡️ Security & Enterprise Architecture
-
-* **Zero-PHI Outbound Interceptor:** Active AST and regex inspection blocking SSNs, MRNs, phone numbers, and patient identifiers.
-* **Tamper-Evident HMAC-SHA256 Audit Trail:** Chained, cryptographically signed logs for every evaluation and state transition.
-* **Air-Gapped LLM Reasoning Adapter:** Agnostic integration for local Ollama instances (`llama3`, `mistral`), Claude 3.5 Sonnet, GPT-4o, and deterministic test mocks.
-* **Active Learning Bayesian Calibration:** Dynamic tracker updating worker reliability weights and monitoring Brier calibration drift.
-* **FastAPI & Prometheus Telemetry:** Exposes OpenAPI 3.1 REST endpoints and operational Prometheus metrics (`/metrics`).
-
----
-
-## 🧪 Testing & Verification
-
-Run the automated test suite:
+The clinical scoring code uses the Python standard library (Python 3.10+).
 
 ```bash
-pytest -v
+python four_score.py single --eye 4 --motor 3 --brainstem 2 --respiration 1
+# score: 10 / 16
+
+python four_score.py batch -i sample.csv -o results.csv
 ```
 
-Execute high-throughput batch simulation benchmarks:
+CSV requires `eye,motor,brainstem,respiration` columns with whole-number points from 0 to 4. Other input columns are preserved. The output adds `four_score_total`. Invalid rows are rejected before the result file is replaced.
+
+### Optional REST API and legacy demonstration
 
 ```bash
-python simulator.py --tasks 1000 --concurrency 8
+python -m pip install -r requirements-dev.txt
+python cli.py serve --host 127.0.0.1 --port 8000
+curl -s http://127.0.0.1:8000/api/four-score \
+  -H 'Content-Type: application/json' \
+  -d '{"eye":4,"motor":3,"brainstem":2,"respiration":1}'
 ```
 
----
+The `POST /api/four-score` endpoint enforces integer values 0–4. The separate `cli.py audit`, `cli.py chat`, `/api/audit`, and `/api/chat` commands are **legacy generic demonstrations**, **not FOUR score calculations or validated clinical decision support**. The chat path is a deterministic stub, not a language-model integration. The in-memory HMAC audit chain is process-local, is not a persistent ledger, and does not independently prove that the original event data are accurate.
 
-## 🐳 Container Deployment
+## Privacy and safety
+
+The static browser calculator neither sends nor stores examination data. Avoid entering identifiable clinical data in CSV files, CLI arguments, or the API; those workflows process local or server-side inputs and the legacy demo retains some metadata in memory. The demonstration's regex identifier checks are incomplete and **do not establish HIPAA compliance or de-identification**. Set `AUDIT_SECRET_KEY` in the server environment if a stable process-specific audit key is required; if absent, an ephemeral random key is generated. This is not intended as the sole basis for clinical decisions.
+
+## Development and testing
 
 ```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+python -m compileall -q four_score.py cli.py agents tests
 docker build -t four-score-coma-scale .
-docker run -p 8000:8000 four-score-coma-scale
 ```
+
+The browser application uses HTML, CSS, and native JavaScript; the optional API uses FastAPI/Pydantic. CI tests the supported Python versions and checks browser JavaScript syntax. GitHub Pages hosts only the static calculator: it cannot run `cli.py` or the FastAPI service.
+
+## Reference
+
+Wijdicks EFM, Bamlet WR, Maramattom BV, Manno EM, McClelland RL. Validation of a new coma scale: The FOUR score. *Ann Neurol.* 2005;58:585–593. [doi:10.1002/ana.20611](https://doi.org/10.1002/ana.20611).
+
+## License
+
+[MIT](LICENSE).
